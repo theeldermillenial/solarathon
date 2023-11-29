@@ -22,7 +22,7 @@ dev = [
     "pydantic",
     "yfinance",
     "mplfinance",
-    "pandas_ta"
+    "pandas_ta",
 ]
 
 [tool.hatch.build]
