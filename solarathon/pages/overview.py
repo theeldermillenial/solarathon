@@ -13,26 +13,18 @@ TODO:
 """
 import threading
 from threading import Event
-from time import sleep
+from typing import cast, Optional, Union
 
+import requests
 import solara
 from solara.alias import rv
 
-from typing import Optional, cast
-import requests
-
-import logging
-import sys
-from typing import Union
 
 # root = logging.getLogger()
 # root.setLevel(logging.DEBUG)
 
 # some app state that outlives a single page
 from pydantic import BaseModel, Field
-
-
-init_app_state = solara.reactive(["ada", "btc", "bnb", "eth", "doge", "xrp"])
 
 
 class TickerData(BaseModel):
@@ -117,7 +109,7 @@ def DashboardCard(
 
     if not ticker_data:
         with rv.Card(
-            style_=f"width: 100%; height: 100%; font-family: sans-serif; padding: 20px 20px; background-color: #1B2028; color: #ffff; border-radius: 16px; box-shadow: rgba(0, 0, 0, 0) 0px 0px, rgba(0, 0, 0, 0) 0px 0px, rgba(0, 0, 0, 0.2) 0px 4px 6px -1px, rgba(0, 0, 0, 0.14) 0px 2px 4px -1px"
+            style_=f"width: 100%; height: 100%; font-family: sans-serif; padding: 20px 20px; background-color: #1B2028; color: #ffff; border-radius: 16px; box-shadow: rgba(0, 0, 0, 0) 0px 0px, rgba(0, 0, 0, 0) 0px 0px, rgba(0, 0, 0, 0.2) 0px 4px 6px -1px, rgba(0, 0, 0, 0.14) 0px 2px 4px -1px",
         ) as main:
             rv.CardTitle(
                 children=[GeckoIcon("", "")],
@@ -169,13 +161,13 @@ def DashboardCard(
                     columns=2, justify_items="space-between", align_items="baseline"
                 ):
                     solara.Text(
-                        str(f"{decimals(ticker_data.last_price)}$"),
+                        str(f"${decimals(ticker_data.last_price)}"),
                         style={"font-size": "1.5rem", "font-weight": 700},
                     )
                     solara.Text(str("price"), style={"font-size": "0.6rem"})
                     if market_cap is not None:
                         solara.Text(
-                            str(f"{format_price(decimals(market_cap))}$"),
+                            str(f"${format_price(decimals(market_cap))}"),
                             style={"font-weight": 400},
                         )
                     if market_cap is not None:
@@ -203,7 +195,7 @@ def DashboardCard(
 
                     if market_cap_change_percentage is None:
                         solara.Text(
-                            str(f"{ticker_data.high_price}$"),
+                            str(f"${ticker_data.high_price}"),
                             style={"font-size": "0.6rem"},
                         )
                     if market_cap_change_percentage is None:
@@ -237,6 +229,7 @@ def get_available_symbols():
 
 @solara.component
 def Page():
+    init_app_state = solara.use_reactive(["ada", "btc", "bnb", "eth", "doge", "xrp"])
     default_currency = "USDT"
     default_echange = "Binance"
     grid_layout_initial = [
@@ -278,9 +271,14 @@ def Page():
     )
 
     with solara.VBox() as main:
-        solara.SelectMultiple(
-            f"Tickers from {default_echange}", init_app_state, all_tickers
-        )
+        with solara.AppBar():
+            with solara.Column(style={"height": "25px", "background": "transparent"}):
+                solara.SelectMultiple(
+                    f"Tickers from {default_echange}",
+                    init_app_state,
+                    all_tickers,
+                    dense=True,
+                )
 
         dashboard_cards = []
         row_widths = [4, 4, 4]
