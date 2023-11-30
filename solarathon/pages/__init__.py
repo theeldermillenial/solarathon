@@ -8,7 +8,7 @@ word_limit = solara.reactive(10)
 
 # in case you want to override the default order of the tabs
 # route_order = ["/", "settings", "chat", "clickbutton", "technicalanaly", "dashboard"]
-route_order = ["/", "overview", "analyze"]
+route_order = ["/", "overview", "analyze", "tokenregistry"]
 
 
 @solara.component
