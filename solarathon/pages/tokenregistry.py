@@ -1,5 +1,10 @@
 """
 Token Registry
+this page is showing all tokens from the token registry dated 2023-11-28
+content is loaded from public folder
+content in DataFrame (Table)
+when you click on the token, it opens a modal with token info
+token info is loaded from public folder tokens.json
 
 1. Aggregate token metadata from the cardano token registry
 2. Create a dictionary with token policy+name as keys and ticker name and icon as values
@@ -21,14 +26,12 @@ import base64
 from io import BytesIO
 import reacton.ipyvuetify as v
 from typing import Callable
-
+import hashlib
 
 # @dataclasses.dataclass(frozen=True)
 # class TodoItem:
 #     text: str
 #     done: bool
-
-
 
 open_dialog = solara.reactive(False)
 
@@ -98,6 +101,7 @@ def CryptoModal(item):
                                 "position": "relative",
                             },
                         ):
+                            solara.Text('Here it will show token info, like categories, project, website, etc.')
                            
                             with solara.GridFixed(
                                 columns=2, justify_items="space-between", align_items="baseline"
@@ -123,23 +127,6 @@ def CryptoModal(item):
                                     if not item:
                                         solara.Text("No data available")
                     return main
-
-
-@solara.component
-def GeckoIcon(name: str, img: str):
-    with solara.v.Html(
-        tag="a",
-        attributes={"href": f"https://www.binance.com/en/trade", "target": "_blank"},
-    ):
-        with solara.v.ListItem(class_="pa-0"):
-            with solara.v.ListItemAvatar(color="white"):
-                solara.v.Img(
-                    class_="elevation-6",
-                    src=img,
-                )
-            with solara.v.ListItemContent():
-                solara.v.ListItemTitle(children=[name], style_=f"color: white")
-
 
 @solara.component
 def Page():
@@ -175,7 +162,7 @@ def Page():
     for index, subject in enumerate(metadata):
         policy = subject["policy"]
         name_value = subject["name"]["value"]
-        ticker_value = subject["ticker"]["value"] if subject["ticker"] is not None else None
+        ticker_value = subject["ticker"]["value"] if subject["ticker"] is not None else ''
         icon_value = subject["logo"]["value"] if subject["logo"] is not None else None
 
         # LOAD ICONS - heavy
@@ -195,32 +182,27 @@ def Page():
         #         print(f"Failed to process image: {e}")
         #         icon_value = None
     
-        common_key = subject["subject"]  # Assuming "subject" is the common key
-
         token_info = {
             "index": index,
             "ticker": ticker_value,
             "icon": icon_value,
         }
 
+        common_key = subject["subject"]  # Assuming "subject" is the common key
+
+        #TODO: you need to fix matching, common_key should match token_verified_info.keys() 
+        # common_key is longer than token_verified_info.keys()
+        # probably difference is in the end of the common string which is hashed name, but not sure
         if common_key in token_verified_info:
+            print("matched key", common_key)
+            
             token_info.update(token_verified_info[common_key])
             token_info["verified"] = True
-            # print("common_key", common_key)
 
         if policy:
             token_info_dict[f"{policy}-{name_value}"] = token_info
         else:
             token_info_dict[name_value] = token_info
-
-
-
-
-    
-    
-    def on_close():
-        set_is_open(False)
-        print("Closing...")
 
     def on_action_column(column):
         print(f"Column action on: {column}")
@@ -283,11 +265,13 @@ def Page():
     # df = df[cols]
 
     with solara.VBox() as main:
+   
         solara.DataFrame(
             df, 
             column_actions=column_actions, 
             cell_actions=cell_actions,
         )
+
 
         TokenListItem(content, is_open, set_is_open)
         return main
