@@ -73,9 +73,9 @@ def get_binance_ticket(symbol: str) -> TickerData:
     binance_url = f"https://api.binance.us/api/v3/ticker/24hr?symbol={symbol}"
     response = requests.get(binance_url)
     if response.status_code == 200:
-        return TickerData.model_validate(json_data=response.json())
+        return TickerData.model_validate_json(json_data=response.content)
     else:
-        solara.Error(f"Failed to retrieve data from API: {response.json()}")
+        solara.Error(f"Failed to retrieve data from API: {response.content}")
         return TickerData(
             symbol=f"{symbol} no data",
             last_price="0",
