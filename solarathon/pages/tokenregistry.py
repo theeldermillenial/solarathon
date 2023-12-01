@@ -27,11 +27,7 @@ from io import BytesIO
 import reacton.ipyvuetify as v
 from typing import Callable
 import hashlib
-
-# @dataclasses.dataclass(frozen=True)
-# class TodoItem:
-#     text: str
-#     done: bool
+import matplotlib.pyplot as plt
 
 open_dialog = solara.reactive(False)
 
@@ -57,8 +53,28 @@ def load_token(path: Path) -> Dict[str, str]:
 def batchMetadataQuery():
     with ThreadPoolExecutor() as executor:
         tokens = executor.map(load_token, token_paths)
-
     return list(t for t in tokens if t is not None)
+
+def load_icon(icon_value):
+    if icon_value:
+            try:
+                # Decode the Base64 string into bytes
+                decoded = base64.b64decode(icon_value)
+                # Open the image using PIL from the decoded bytes
+                img = Image.open(BytesIO(decoded))
+                # Convert the image to HTML format and store it
+                if isinstance(img, Image.Image):
+                    buffered = BytesIO()
+                    img.save(buffered, format="PNG")
+                    img_str = base64.b64encode(buffered.getvalue()).decode()
+                    icon_value = f'<img src="data:image/png;base64,{img_str}" width="20px" height="20px">'
+            except Exception as e:
+                print(f"Failed to process image: {e}")
+                icon_value = None
+    return icon_value
+
+def render_html(val):
+    return solara.HTML(tag="html", unsafe_innerHTML=val) if val else None
 
 @solara.component
 def TokenItem(item, on_close: Callable[[], None]):
@@ -101,7 +117,7 @@ def CryptoModal(item):
                                 "position": "relative",
                             },
                         ):
-                            solara.Text('Here it will show token info, like categories, project, website, etc.')
+                            solara.Text('Here it will show token info, like categories, project, website, etc. (from tokens.json)')
                            
                             with solara.GridFixed(
                                 columns=2, justify_items="space-between", align_items="baseline"
@@ -155,7 +171,7 @@ def Page():
     metadata = solara.use_memo(lambda: batchMetadataQuery(), [])
     #TODO reoder the list of tokens to show top_tickers first
     top_tickers = ["AGIX", "WMT", "COPI", "LENFI", "NTX", "MELD", "IAG", "SNEK", "MIN", "MILK", "INDY", "BOOK", "iUSD", "SOC", "SHEN", "LQ", "ENCS", "OPT", "HUNT", "NEWM", "GENS", "RJV", "SUNDAE", "JPG", "LIFI", "iBTC", "DJED", "FLAC", "cNETA", "NMKR", "HOSKY", "iETH", "WRT", "VYFI", "DISCO", "OPTIM", "EMP", "PAVIA", "FACT", "CLAY", "CHRY", "CBLP", "CGI", "GENSX", "CLAP", "SPF"]
-    
+    metadata = solara.use_memo(lambda: [subject for subject in metadata if subject["name"]["value"] in top_tickers] + [subject for subject in metadata if subject["name"]["value"] not in top_tickers], [metadata, top_tickers])
 
     # Create a dictionary with token policy+name as keys and ticker name and icon as values
     token_info_dict = {}
@@ -164,28 +180,17 @@ def Page():
         name_value = subject["name"]["value"]
         ticker_value = subject["ticker"]["value"] if subject["ticker"] is not None else ''
         icon_value = subject["logo"]["value"] if subject["logo"] is not None else None
-
-        # LOAD ICONS - heavy
-        # if icon_value:
-        #     try:
-        #         # Decode the Base64 string into bytes
-        #         decoded = base64.b64decode(icon_value)
-        #         # Open the image using PIL from the decoded bytes
-        #         img = Image.open(BytesIO(decoded))
-        #         # Convert the image to HTML format and store it
-        #         if isinstance(img, Image.Image):
-        #             buffered = BytesIO()
-        #             img.save(buffered, format="PNG")
-        #             img_str = base64.b64encode(buffered.getvalue()).decode()
-        #             icon_value = f'<img src="data:image/png;base64,{img_str}" width="20px" height="20px">'
-        #     except Exception as e:
-        #         print(f"Failed to process image: {e}")
-        #         icon_value = None
+        if policy:
+            token_key = f"{policy}-{name_value}"
+        else:
+            token_key = f"non policy-{name_value}"
     
         token_info = {
             "index": index,
+            "policy-token": token_key,
             "ticker": ticker_value,
             "icon": icon_value,
+            # "icon": load_icon(icon_value),
         }
 
         common_key = subject["subject"]  # Assuming "subject" is the common key
@@ -195,14 +200,11 @@ def Page():
         # probably difference is in the end of the common string which is hashed name, but not sure
         if common_key in token_verified_info:
             print("matched key", common_key)
-            
             token_info.update(token_verified_info[common_key])
             token_info["verified"] = True
 
-        if policy:
-            token_info_dict[f"{policy}-{name_value}"] = token_info
-        else:
-            token_info_dict[name_value] = token_info
+       
+        token_info_dict[token_key] = token_info
 
     def on_action_column(column):
         print(f"Column action on: {column}")
@@ -236,42 +238,31 @@ def Page():
         )
     ]
 
-    solara.Markdown(
-        f"""
-        # Get familiar with Cardano Token Registry
-    """
-    )
-    
-    # def render_html(val):
-    #     return solara.HTML(tag="div", unsafe_innerHTML=val) if val else None
-
     df = pd.DataFrame.from_dict(token_info_dict, orient="index")
     # here do not work because of the index from table not match to original index
-    # df = df.sort_values(by=["verified", "ticker"], ascending=[False, True]).reset_index(drop=True)
+    # df = df.sort_values(by=["verified", "ticker"], ascending=[False, True])
     # top_tickers = "AGIX, WMT, COPI, LENFI, NTX, MELD, IAG, SNEK, MIN, MILK, INDY, BOOK, iUSD, SOC, SHEN, LQ, ENCS, OPT, HUNT, NEWM, GENS, RJV, SUNDAE, JPG, LIFI, iBTC, DJED, FLAC, cNETA, NMKR, HOSKY, iETH, WRT, VYFI, DISCO, OPTIM, EMP, PAVIA, FACT, CLAY, CHRY, CBLP, CGI, GENSX, CLAP, SPF"
     # top_tickers_list = top_tickers.split(", ")
     # df = df[df['ticker'].isin(top_tickers_list)]
+    # df = df.reset_index(drop=True)
 
-    df = df.drop(columns=['index'])
+    # inject html icon into dataframe
+    # df['icon'] = df['icon'].apply(render_html)
 
-    # inject html into dataframe
-    # df["Icon"] = df["icon"].apply(render_html)
-
-    df.reset_index(inplace=True)
-
-
-    # cols = df.columns.tolist()
-    # cols = ['Icon'] + [col for col in cols if col != 'Icon']
-    # df = df[cols]
+    df = df.drop(columns=['index', 'icon', 'verified', 'project', 'categories', 'socialLinks'])
 
     with solara.VBox() as main:
-   
+        solara.Markdown(
+            f"""
+            # Get familiar with Cardano Token Registry
+            """
+        )
+    
         solara.DataFrame(
             df, 
             column_actions=column_actions, 
             cell_actions=cell_actions,
         )
-
 
         TokenListItem(content, is_open, set_is_open)
         return main
