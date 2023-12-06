@@ -28,6 +28,12 @@ import reacton.ipyvuetify as v
 from typing import Callable
 import hashlib
 import matplotlib.pyplot as plt
+import numpy as np
+from IPython.core.display import display, HTML
+import reacton.ipyvuetify as v
+
+from solarathon.components.dataframe_with_icon import TableCard, SummaryCard, DropdownCard
+
 
 open_dialog = solara.reactive(False)
 
@@ -67,14 +73,16 @@ def load_icon(icon_value):
                     buffered = BytesIO()
                     img.save(buffered, format="PNG")
                     img_str = base64.b64encode(buffered.getvalue()).decode()
-                    icon_value = f'<img src="data:image/png;base64,{img_str}" width="20px" height="20px">'
+                    icon_value = f"""<img src="data:image/png;base64,{img_str}" width="20px" height="20px">"""
             except Exception as e:
                 print(f"Failed to process image: {e}")
                 icon_value = None
     return icon_value
 
+
 def render_html(val):
-    return solara.HTML(tag="html", unsafe_innerHTML=val) if val else None
+    return solara.HTML(tag="div", unsafe_innerHTML=val
+    ) if val else ''
 
 @solara.component
 def TokenItem(item, on_close: Callable[[], None]):
@@ -97,10 +105,8 @@ def TokenListItem(items, open_dialog: bool, set_open_dialog: Any):
             if open_dialog:
                 TokenItem(items, on_close=lambda: set_open_dialog(False))
 
-
 @solara.component
 def CryptoModal(item):
-        # print('itemCryptoModal', item)
         with rv.Card(
                     style_=f"width: 100%; height: 100%; font-family: sans-serif; padding: 20px 20px; background-color: #1B2028; color: #ffff; box-shadow: rgba(0, 0, 0, 0) 0px 0px, rgba(0, 0, 0, 0) 0px 0px, rgba(0, 0, 0, 0.2) 0px 4px 6px -1px, rgba(0, 0, 0, 0.14) 0px 2px 4px -1px",
                 ) as main:
@@ -110,38 +116,41 @@ def CryptoModal(item):
                         style_="padding: 0px 0px; padding-bottom: 5px;",
                     )
                     with solara.Div():
-                        with solara.Div(
-                            style={
-                                "display": "inline",
-                                "color": "white",
-                                "position": "relative",
-                            },
+                        with solara.GridFixed(
+                            columns=2, justify_items="space-between", align_items="baseline"
                         ):
-                            solara.Text('Here it will show token info, like categories, project, website, etc. (from tokens.json)')
-                           
-                            with solara.GridFixed(
-                                columns=2, justify_items="space-between", align_items="baseline"
-                            ):
-                                if 'project' in item:
-                                    solara.Text(
-                                        item['project'], style={"font-size": "1.5rem", "font-weight": 500}
-                                    )
-                                    solara.Text(str("project"), style={"font-size": "0.6rem"})
-                                if 'categories' in item:
-                                    solara.Text(item['categories'], style={"font-weight": 400})
-                                    solara.Text(str("categories"), style={"font-size": "0.6rem"})
-                                if 'socialLinks' in item and 'website' in item['socialLinks']:
-                                    solara.Text(item['socialLinks']['website'], style={"font-weight": 500})
-                                    solara.Text(
-                                        str("website"), style={"font-size": "0.6rem"}
-                                    )
-                                if 'socialLinks' in item and 'coinGecko' in item['socialLinks']:
-                                    solara.Text(item['socialLinks']['coinGecko'], style={"font-weight": 500})
-                                    solara.Text(
-                                        str("coinGecko"), style={"font-size": "0.6rem"}
-                                    )
-                                    if not item:
-                                        solara.Text("No data available")
+                            if item.get('project'):
+                                solara.Text(
+                                    item['project'],
+                                    style={"font-size": "1.5rem", "font-weight": 500}
+                                )
+                                solara.Text(str("project"), style={"font-size": "0.6rem"})
+                            else:
+                                solara.Text("No project data available")
+
+                            if item.get('categories'):
+                                solara.Text(
+                                    item['categories'], style={"font-weight": 400}
+                                )
+                                solara.Text(str("categories"), style={"font-size": "0.6rem"})
+                            else:
+                                solara.Text("No category data available")
+
+                            if item.get('socialLinks') and item['socialLinks'].get('website'):
+                                solara.Text(
+                                    item['socialLinks']['website'], style={"font-weight": 500}
+                                )
+                                solara.Text(str("website"), style={"font-size": "0.6rem"})
+                            else:
+                                solara.Text("No website data available")
+
+                            if item.get('socialLinks') and item['socialLinks'].get('coinGecko'):
+                                solara.Text(
+                                    item['socialLinks']['coinGecko'], style={"font-weight": 500}
+                                )
+                                solara.Text(str("coinGecko"), style={"font-size": "0.6rem"})
+                            else:
+                                solara.Text("No coinGecko data available")
                     return main
 
 @solara.component
@@ -168,10 +177,10 @@ def Page():
         """
     )
 
-    metadata = solara.use_memo(lambda: batchMetadataQuery(), [])
+    metadata, _ = solara.use_state(solara.use_memo(lambda: batchMetadataQuery(), dependencies=[]))
     #TODO reoder the list of tokens to show top_tickers first
-    top_tickers = ["AGIX", "WMT", "COPI", "LENFI", "NTX", "MELD", "IAG", "SNEK", "MIN", "MILK", "INDY", "BOOK", "iUSD", "SOC", "SHEN", "LQ", "ENCS", "OPT", "HUNT", "NEWM", "GENS", "RJV", "SUNDAE", "JPG", "LIFI", "iBTC", "DJED", "FLAC", "cNETA", "NMKR", "HOSKY", "iETH", "WRT", "VYFI", "DISCO", "OPTIM", "EMP", "PAVIA", "FACT", "CLAY", "CHRY", "CBLP", "CGI", "GENSX", "CLAP", "SPF"]
-    metadata = solara.use_memo(lambda: [subject for subject in metadata if subject["name"]["value"] in top_tickers] + [subject for subject in metadata if subject["name"]["value"] not in top_tickers], [metadata, top_tickers])
+    # top_tickers = ["AGIX", "WMT", "COPI", "LENFI", "NTX", "MELD", "IAG", "SNEK", "MIN", "MILK", "INDY", "BOOK", "iUSD", "SOC", "SHEN", "LQ", "ENCS", "OPT", "HUNT", "NEWM", "GENS", "RJV", "SUNDAE", "JPG", "LIFI", "iBTC", "DJED", "FLAC", "cNETA", "NMKR", "HOSKY", "iETH", "WRT", "VYFI", "DISCO", "OPTIM", "EMP", "PAVIA", "FACT", "CLAY", "CHRY", "CBLP", "CGI", "GENSX", "CLAP", "SPF"]
+    # metadata = solara.use_memo(lambda: [subject for subject in metadata if subject["name"]["value"] in top_tickers] + [subject for subject in metadata if subject["name"]["value"] not in top_tickers], [metadata, top_tickers])
 
     # Create a dictionary with token policy+name as keys and ticker name and icon as values
     token_info_dict = {}
@@ -179,7 +188,7 @@ def Page():
         policy = subject["policy"]
         name_value = subject["name"]["value"]
         ticker_value = subject["ticker"]["value"] if subject["ticker"] is not None else ''
-        icon_value = subject["logo"]["value"] if subject["logo"] is not None else None
+        icon_value = subject["logo"]["value"] if subject["logo"] is not None else ''
         if policy:
             token_key = f"{policy}-{name_value}"
         else:
@@ -187,23 +196,28 @@ def Page():
     
         token_info = {
             "index": index,
+            # "icon": load_icon(icon_value),
+            "icon": icon_value,
             "policy-token": token_key,
             "ticker": ticker_value,
-            "icon": icon_value,
-            # "icon": load_icon(icon_value),
-        }
 
+            "project": "",
+            "categories": "",
+            "verified": False,
+            "socialLinks": "",
+        }
         common_key = subject["subject"]  # Assuming "subject" is the common key
 
-        #TODO: you need to fix matching, common_key should match token_verified_info.keys() 
-        # common_key is longer than token_verified_info.keys()
-        # probably difference is in the end of the common string which is hashed name, but not sure
-        if common_key in token_verified_info:
-            print("matched key", common_key)
-            token_info.update(token_verified_info[common_key])
+        common_key_array = np.array(list(token_verified_info.keys()))
+        matching_indices = np.where([common_key.startswith(key) for key in common_key_array])[0]
+        if len(matching_indices) > 0:
+            matched_key = common_key_array[matching_indices[0]]
+            print("matched key", matched_key)
+            token_info.update(token_verified_info[matched_key])
             token_info["verified"] = True
+        else:
+            print("No matching key found for", common_key)
 
-       
         token_info_dict[token_key] = token_info
 
     def on_action_column(column):
@@ -238,18 +252,6 @@ def Page():
         )
     ]
 
-    df = pd.DataFrame.from_dict(token_info_dict, orient="index")
-    # here do not work because of the index from table not match to original index
-    # df = df.sort_values(by=["verified", "ticker"], ascending=[False, True])
-    # top_tickers = "AGIX, WMT, COPI, LENFI, NTX, MELD, IAG, SNEK, MIN, MILK, INDY, BOOK, iUSD, SOC, SHEN, LQ, ENCS, OPT, HUNT, NEWM, GENS, RJV, SUNDAE, JPG, LIFI, iBTC, DJED, FLAC, cNETA, NMKR, HOSKY, iETH, WRT, VYFI, DISCO, OPTIM, EMP, PAVIA, FACT, CLAY, CHRY, CBLP, CGI, GENSX, CLAP, SPF"
-    # top_tickers_list = top_tickers.split(", ")
-    # df = df[df['ticker'].isin(top_tickers_list)]
-    # df = df.reset_index(drop=True)
-
-    # inject html icon into dataframe
-    # df['icon'] = df['icon'].apply(render_html)
-
-    df = df.drop(columns=['index', 'icon', 'verified', 'project', 'categories', 'socialLinks'])
 
     with solara.VBox() as main:
         solara.Markdown(
@@ -257,11 +259,33 @@ def Page():
             # Get familiar with Cardano Token Registry
             """
         )
-    
+
+        df = pd.DataFrame.from_dict(token_info_dict, orient="index")
+        # here do not work because of the index from table not match to original index
+        # df = df.sort_values(by=["verified", "ticker"], ascending=[False, True])
+        # top_tickers = "AGIX, WMT, COPI, LENFI, NTX, MELD, IAG, SNEK, MIN, MILK, INDY, BOOK, iUSD, SOC, SHEN, LQ, ENCS, OPT, HUNT, NEWM, GENS, RJV, SUNDAE, JPG, LIFI, iBTC, DJED, FLAC, cNETA, NMKR, HOSKY, iETH, WRT, VYFI, DISCO, OPTIM, EMP, PAVIA, FACT, CLAY, CHRY, CBLP, CGI, GENSX, CLAP, SPF"
+        # top_tickers_list = top_tickers.split(", ")
+        # df = df[df['ticker'].isin(top_tickers_list)]
+        # df = df.reset_index(drop=True)
+
+        df["icon"] = df["icon"].apply(load_icon)
+        # TODO render icon
+        # df["icon"] = df["icon"].apply(render_html)
+
+        TableCard(df)
+        SummaryCard(df)
+        DropdownCard(df)
+
+        # for now drop icon, index, socialLinks column
+        df = df.drop(columns=['index','icon', 'socialLinks'])
+
+        df["categories"] = df["categories"].apply(lambda x: ', '.join(x))
+        df = df.rename(columns={'verified': 'verified by minswap'})
+
         solara.DataFrame(
             df, 
             column_actions=column_actions, 
-            cell_actions=cell_actions,
+            cell_actions=cell_actions
         )
 
         TokenListItem(content, is_open, set_is_open)
