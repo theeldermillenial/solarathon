@@ -10,6 +10,7 @@ token info is loaded from public folder tokens.json
 2. Create a dictionary with token policy+name as keys and ticker name and icon as values
 3. Create a custom modal that opens when you want to select tokens that shows icon, ticker name, and a selection
 4. When selected, add a box similar to the dashboard that has token info
+
 """
 from concurrent.futures import ThreadPoolExecutor
 import dataclasses
@@ -32,7 +33,7 @@ import numpy as np
 from IPython.core.display import display, HTML
 import reacton.ipyvuetify as v
 
-from solarathon.components.dataframe_with_icon import TableCard, SummaryCard, DropdownCard
+from solarathon.components.token_registry_components import TableCard, SummaryCard, DropdownCard
 
 
 open_dialog = solara.reactive(False)
@@ -152,6 +153,23 @@ def CryptoModal(item):
                             else:
                                 solara.Text("No coinGecko data available")
                     return main
+        
+@solara.component
+def TokenCard(token_info_dict):
+    with rv.Card(
+        style_=f"width: 100%; height: 100%; font-family: sans-serif; padding: 20px 20px; background-color: #1B2028; color: #ffff; border-radius: 16px; box-shadow: rgba(0, 0, 0, 0) 0px 0px, rgba(0, 0, 0, 0) 0px 0px, rgba(0, 0, 0, 0.2) 0px 4px 6px -1px, rgba(0, 0, 0, 0.14) 0px 2px 4px -1px"
+    ) as main:
+        with solara.Div(style={"display": "flex", "align-items": "center"}):
+            solara.Text(f"Index: {token_info_dict['index']}", style={"margin-right": "10px"})
+            if token_info_dict['icon']:
+                icon_img = solara.Img(src=token_info_dict['icon'], alt="Icon", width="30px", height="30px")
+                solara.Div(children=[icon_img], style={"margin-right": "10px"})
+
+            solara.Text(f"Policy-Token: {token_info_dict['policy-token']}", style={"margin-right": "10px"})
+            solara.Text(f"Ticker: {token_info_dict['ticker']}", style={"margin-right": "10px"})
+            solara.Text(f"Verified: {token_info_dict['verified']}", style={"margin-right": "10px"})
+
+    return main
 
 @solara.component
 def Page():
@@ -178,15 +196,12 @@ def Page():
     )
 
     metadata, _ = solara.use_state(solara.use_memo(lambda: batchMetadataQuery(), dependencies=[]))
-    #TODO reoder the list of tokens to show top_tickers first
-    # top_tickers = ["AGIX", "WMT", "COPI", "LENFI", "NTX", "MELD", "IAG", "SNEK", "MIN", "MILK", "INDY", "BOOK", "iUSD", "SOC", "SHEN", "LQ", "ENCS", "OPT", "HUNT", "NEWM", "GENS", "RJV", "SUNDAE", "JPG", "LIFI", "iBTC", "DJED", "FLAC", "cNETA", "NMKR", "HOSKY", "iETH", "WRT", "VYFI", "DISCO", "OPTIM", "EMP", "PAVIA", "FACT", "CLAY", "CHRY", "CBLP", "CGI", "GENSX", "CLAP", "SPF"]
-    # metadata = solara.use_memo(lambda: [subject for subject in metadata if subject["name"]["value"] in top_tickers] + [subject for subject in metadata if subject["name"]["value"] not in top_tickers], [metadata, top_tickers])
 
     # Create a dictionary with token policy+name as keys and ticker name and icon as values
     token_info_dict = {}
     for index, subject in enumerate(metadata):
-        policy = subject["policy"]
-        name_value = subject["name"]["value"]
+        policy = subject["policy"] if subject["policy"] is not None else ''
+        name_value = subject["name"]["value"] if subject["name"] is not None else ''
         ticker_value = subject["ticker"]["value"] if subject["ticker"] is not None else ''
         icon_value = subject["logo"]["value"] if subject["logo"] is not None else ''
         if policy:
@@ -197,7 +212,6 @@ def Page():
         token_info = {
             "index": index,
             # "icon": load_icon(icon_value),
-            "icon": icon_value,
             "policy-token": token_key,
             "ticker": ticker_value,
 
@@ -205,15 +219,21 @@ def Page():
             "categories": "",
             "verified": False,
             "socialLinks": "",
+            "icon": icon_value,
         }
         common_key = subject["subject"]  # Assuming "subject" is the common key
 
+        #TODO full match, not partial match
+        #encoded "subject" key of the entry, all lowercase.
+        #The base16-encoded policyId + base16-encoded assetName
         common_key_array = np.array(list(token_verified_info.keys()))
         matching_indices = np.where([common_key.startswith(key) for key in common_key_array])[0]
         if len(matching_indices) > 0:
             matched_key = common_key_array[matching_indices[0]]
             print("matched key", matched_key)
+
             token_info.update(token_verified_info[matched_key])
+            token_info["policy-token"] = matched_key
             token_info["verified"] = True
         else:
             print("No matching key found for", common_key)
@@ -228,17 +248,18 @@ def Page():
         print("index from row", row_index)
         print("column", column)
 
-        for key, value in token_info_dict.items():
-            print("index from token_info_dict", value["index"])
-            if value["index"] == row_index:
-                print("index matched")
-                set_content(value)
-                set_is_open(True)
-                break
-        else:
-            print("No matching index found")
+        # for key, value in token_info_dict.items():
+        #     print("index from token_info_dict", value["index"])
+        #     if value["index"] == row_index:
+        #         print("index matched")
+        #         set_content(value)
+        #         set_is_open(True)
+        #         break
+        # else:
+        #     print("No matching index found")
 
         set_cell(dict(column=column, row_index=row_index))
+
     column_actions = [
         solara.ColumnAction(
             icon="mdi-sunglasses", name="User column action", on_click=on_action_column
@@ -254,41 +275,40 @@ def Page():
 
 
     with solara.VBox() as main:
-        solara.Markdown(
-            f"""
-            # Get familiar with Cardano Token Registry
-            """
-        )
-
         df = pd.DataFrame.from_dict(token_info_dict, orient="index")
-        # here do not work because of the index from table not match to original index
-        # df = df.sort_values(by=["verified", "ticker"], ascending=[False, True])
-        # top_tickers = "AGIX, WMT, COPI, LENFI, NTX, MELD, IAG, SNEK, MIN, MILK, INDY, BOOK, iUSD, SOC, SHEN, LQ, ENCS, OPT, HUNT, NEWM, GENS, RJV, SUNDAE, JPG, LIFI, iBTC, DJED, FLAC, cNETA, NMKR, HOSKY, iETH, WRT, VYFI, DISCO, OPTIM, EMP, PAVIA, FACT, CLAY, CHRY, CBLP, CGI, GENSX, CLAP, SPF"
-        # top_tickers_list = top_tickers.split(", ")
-        # df = df[df['ticker'].isin(top_tickers_list)]
-        # df = df.reset_index(drop=True)
 
-        df["icon"] = df["icon"].apply(load_icon)
+        # here do not work because of the index from table not match to original index
+        df = df.sort_values(by=["verified", "ticker"], ascending=[False, True])
+
+        df = df.reset_index(drop=True)
+
+        # df["icon"] = df["icon"].apply(load_icon)
         # TODO render icon
         # df["icon"] = df["icon"].apply(render_html)
 
-        TableCard(df)
-        SummaryCard(df)
-        DropdownCard(df)
-
-        # for now drop icon, index, socialLinks column
-        df = df.drop(columns=['index','icon', 'socialLinks'])
+        # for now drop icon
+        df = df.drop(columns=['icon'])
 
         df["categories"] = df["categories"].apply(lambda x: ', '.join(x))
         df = df.rename(columns={'verified': 'verified by minswap'})
 
-        solara.DataFrame(
-            df, 
-            column_actions=column_actions, 
-            cell_actions=cell_actions
-        )
+        with solara.Div(
+                style={
+                    "paddingBottom": "20px",
+                },
+            ):
+            TableCard(df)
+            
+        DropdownCard(df)
 
-        TokenListItem(content, is_open, set_is_open)
+        with solara.Div(
+                style={
+                    "paddingTop": "20px",
+                },
+            ):
+            SummaryCard(df)
+
+        # TokenListItem(content, is_open, set_is_open)
         return main
 
     

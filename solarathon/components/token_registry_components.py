@@ -18,20 +18,12 @@ from solara.lab.utils.dataframe import df_unique
 cardheight = "100%"
 
 @solara.component
-def Table(df, n=5):
-    output_c = w.Output()
-
-    def output():
-        import ipywidgets as widgets
-
-        output_real: widgets.Output = solara.get_widget(output_c)
-        # don't rely on display, does not work in solara yet
-        with output_real.hold_sync():
-            output_real.outputs = tuple()
-            output_real.append_display_data(df)
-
-    solara.use_side_effect(output)
-    return output_c
+def Table(df):
+   return solara.DataFrame(
+            df, 
+            # column_actions=column_actions, 
+            # cell_actions=cell_actions
+        )
 
 @solara.component
 def TableCard(df):
@@ -45,7 +37,7 @@ def TableCard(df):
         title = "Filtered"
     else:
         title = "Showing all"
-    title = "Showing first 10 rows"
+    title = "Get familiar with Cardano Token Registry"
     progress = len(dff) / len(df) * 100
     with v.Card(elevation=2, height=cardheight) as main:
         with v.CardTitle(children=[title]):
@@ -60,7 +52,7 @@ cardheight = "100%"
 
 @solara.component
 def SummaryCard(df):
-    filter, set_filter = use_cross_filter(id(df), "summary")
+    filter, set_filter = use_cross_filter(id(df), "table")
     dff = df
     filtered = False
     if filter is not None:
@@ -99,7 +91,6 @@ def DropdownCard(df, column=None):
 
     def set_value_and_filter(value):
         set_value(value)
-        # print(value)
         if value is None:
             set_filter(None)
         else:
@@ -108,11 +99,10 @@ def DropdownCard(df, column=None):
                 set_filter(str(df[column].ismissing()))
             else:
                 filter = df[column] == value
-                # print(filter)
                 set_filter(filter)
 
     with v.Card(elevation=2, height=cardheight) as main:
-        with v.CardTitle(children=["Filter out single value"]):
+        with v.CardTitle(children=["Filter out list"]):
             pass
         with v.CardText():
             with v.Btn(v_on="x.on", icon=True, absolute=True, style_="right: 10px; top: 10px") as btn:
