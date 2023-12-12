@@ -106,6 +106,12 @@ def TokenListItem(items, open_dialog: bool, set_open_dialog: Any):
             if open_dialog:
                 TokenItem(items, on_close=lambda: set_open_dialog(False))
 
+def format_links(links):
+    if links:
+        return '\n'.join(links.values())
+    else:
+        return ""
+
 @solara.component
 def CryptoModal(item):
         with rv.Card(
@@ -291,6 +297,7 @@ def Page():
 
         df["categories"] = df["categories"].apply(lambda x: ', '.join(x))
         df = df.rename(columns={'verified': 'verified by minswap'})
+        df["socialLinks"] = df["socialLinks"].apply(format_links)
 
         with solara.Div(
                 style={
