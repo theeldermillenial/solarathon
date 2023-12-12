@@ -229,9 +229,6 @@ def Page():
         }
         common_key = subject["subject"]  # Assuming "subject" is the common key
 
-        #TODO full match, not partial match
-        #encoded "subject" key of the entry, all lowercase.
-        #The base16-encoded policyId + base16-encoded assetName
         common_key_array = np.array(list(token_verified_info.keys()))
         matching_indices = np.where([common_key.startswith(key) for key in common_key_array])[0]
         if len(matching_indices) > 0:
@@ -239,7 +236,7 @@ def Page():
             print("matched key", matched_key)
 
             token_info.update(token_verified_info[matched_key])
-            token_info["policy-token"] = matched_key
+            token_info["policy-token"] = f"{matched_key}-{name_value}"
             token_info["verified"] = True
         else:
             print("No matching key found for", common_key)
